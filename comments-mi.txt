@@ -1,0 +1,4 @@
+model improvement exercise thoughts
+* starts with fitting the two linear models with Y as the outcome, did they not already do that in the previous one?
+* When you say "also compute the RMSE of a null model" I would add maybe in parentheses "using `null_model()` from `tidymodels`" or something like that.
+* Maybe for null_model() you also need to tell them they HAVE to use set_engine("parsnip") or there is no other way to make the fit() work.
