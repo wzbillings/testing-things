@@ -50,17 +50,17 @@ peng_boots <-
 	rsample::bootstraps(times = 1000)
 
 # Fit the model to each bootstrap analysis set
-peng_boots_res <-
-	peng_wf |>
-	tune::fit_resamples(
-		resamples = peng_boots,
-		metrics = yardstick::metric_set(yardstick::rmse),
-		control = tune::control_resamples(
-			verbose = TRUE,
-			save_pred = TRUE,
-			save_workflow = TRUE
-		)
-	)
+# peng_boots_res <-
+# 	peng_wf |>
+# 	tune::fit_resamples(
+# 		resamples = peng_boots,
+# 		metrics = yardstick::metric_set(yardstick::rmse),
+# 		control = tune::control_resamples(
+# 			verbose = TRUE,
+# 			save_pred = TRUE,
+# 			save_workflow = TRUE
+# 		)
+# 	)
 
 # Apparently there's no way to make that function save all of the fitted
 # workflows so we have to get those ourselves.
