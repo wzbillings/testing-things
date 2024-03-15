@@ -1,4 +1,55 @@
 model improvement exercise thoughts
-* starts with fitting the two linear models with Y as the outcome, did they not already do that in the previous one?
 * When you say "also compute the RMSE of a null model" I would add maybe in parentheses "using `null_model()` from `tidymodels`" or something like that.
-* Maybe for null_model() you also need to tell them they HAVE to use set_engine("parsnip") or there is no other way to make the fit() work.
+* Maybe for null_model() you also need to tell them they HAVE to use
+set_engine("parsnip") or there is no other way to make the fit() work.
+* I like the part where they have to run the CV twice. No comments I just
+think that was a good idea.
+* I think right after doing the CV, the model predictions part might be
+confusing to some people. Maybe be sure to say "the predictions on the
+training set".
+* For the plot, right now it makes it seem like you want the predictions
+from all three models on the plot to overlap. Maybe need to add instructions
+like "make sure the three models are visually distinguishable in some way,
+such as using color or faceting".
+* For the model predictions section when you describe the variability in the
+model, it could also be the case that we've captured the "true data generating
+process" with the variables we have, but the residual variance is just large
+relatively to the effect sizes. Some processes have a higher inherent level
+of noise. Looking at the residuals 
+* model predictions and uncertainty section -- make sure to note that the
+bootstraps should be created from the training data, not the full data.
+* For the quantile results, you say "this bit of code computes mean and 89% 
+confidence intervals", which is untrue -- it computes the median, rather than
+the mean. In general those should be almost exactly the same as the
+non-bootstrapped point estimates so using the median/mean is fine (one should
+check e.g. by plotting the medians vs the original point estimates), but we are
+technically estimating a CI of the original point estimate, which is why I used
+those and then added the upper and lower quantiles of the bootstrap distribution
+to the original point estimates in my code. Using a summary statistic can
+introduce monte carlo error into the estimate of the center which should not
+otherwise be there, with 100 bootstraps it's possible for it to be off a bit
+based on random chance.
+* I think getting an array of size B x n_train is an efficient way to store the
+data, but not really a "tidyverse-type" way to store it. If that's how you
+want students to end up I think you should include more specific code for
+getting and saving the predictions.
+* The section where you describe bootstrapping vs. CV is not quite right. It 
+doesn't make sense to me to compare building a bootstrap distribution of statistics to CV.
+In that case, the bootstrap way does something that CV demonstrably does not
+do (approximate the sampling distribution).
+The actual fair comparison IMO is between CV and out-of-bootstrap estimation,
+which is supported by default in rsample. OOB also allows you to fit the
+model to some data (the bootstrap resample) and then get the performance on
+data the model has never seen before (the out-of-bootstrap samples). That's
+why the rsample bootstrap object has an analysis and an assessment sample for
+each bootstrap.
+So in both methods, you randomly partition the data into analysis and assessment
+sets, just in different ways. The way you got it worded now implies that the
+bootstrap method doesn't have an analysis set for each fold.
+There is, in general, no consensus on which is better for model evaluation.
+* For the final evaluation on test data section, I think you should point out
+that they can use the last_fit() function or the predict() function but NOT
+the fit() function. I think every year we struggle with people not understanding
+what "don't fit to the test set" actually means.
+* Maybe explicitly tell them to calculate the RMSE for the test data, and compare
+to the CV and train data RMSEs.

@@ -134,4 +134,203 @@ rmse(null_preds, truth = Y, estimate = .pred)
 rmse(linfit1_preds, truth = Y, estimate = .pred)
 rmse(linfit2_preds, truth = Y, estimate = .pred)
 
-# Need to do the next part
+# Set up 10-fold cross validation
+set.seed(309123)
+folds <- vfold_cv(dat_train, v = 10)
+
+# Set up the workflows
+null_wf <- workflow() |>
+	add_model(null_mod) |>
+	add_formula(Y ~ .)
+
+linfit1_wf <- workflow() |>
+	add_model(lin_mod) |>
+	add_formula(Y ~ DOSE)
+
+linfit2_wf <- workflow() |>
+	add_model(lin_mod) |>
+	add_formula(Y ~ .)
+
+# Set up the metrics
+my_metrics <- metric_set(rmse)
+
+# Evaluate performance of each model on resamples
+null_res <-
+	null_wf |>
+	fit_resamples(resamples = folds, metrics = my_metrics)
+
+linfit1_res <-
+	linfit1_wf |>
+	fit_resamples(resamples = folds, metrics = my_metrics)
+
+linfit2_res <-
+	linfit2_wf |>
+	fit_resamples(resamples = folds, metrics = my_metrics)
+
+# View the metrics
+collect_metrics(null_res)
+collect_metrics(linfit1_res)
+collect_metrics(linfit2_res)
+
+# We would still select the model will all predictors, but now we can see that
+# the RMSE of linfit1 and linfit2 have SE's that overlap, indicating that the
+# performance of linfit2 is not too much better. If we used, e.g., the 1-SE
+# rule for selection, we would select the model with only dose.
+
+# Run that code again to see new values
+set.seed(156461)
+folds <- vfold_cv(dat_train, v = 10)
+null_res <-
+	null_wf |>
+	fit_resamples(resamples = folds, metrics = my_metrics)
+
+linfit1_res <-
+	linfit1_wf |>
+	fit_resamples(resamples = folds, metrics = my_metrics)
+
+linfit2_res <-
+	linfit2_wf |>
+	fit_resamples(resamples = folds, metrics = my_metrics)
+
+# View the metrics
+collect_metrics(null_res)
+collect_metrics(linfit1_res)
+collect_metrics(linfit2_res)
+
+# Now linfit2 seems even a little bit better. This is a problem we could solve
+# by adding repeats to our CV scheme -- in fact Frank Harrell suggests that
+# for biomedical applications, 100 repeats of CV is often needed to ensure
+# most of the random error is accounted for.
+
+# Model predictions -------------------------------------------------------
+
+# This section added by ZANE
+comb_preds <- dplyr::bind_rows(
+	"null" = null_preds,
+	"lin1" = linfit1_preds,
+	"lin2" = linfit2_preds,
+	.id = "model"
+)
+
+# Plot predicted vs observed
+ggplot2::theme_set(hgp::theme_ms())
+comb_preds |>
+	ggplot() +
+	aes(x = Y, y = .pred) +
+	geom_abline(slope = 1, intercept = 0) +
+	geom_point() +
+	facet_wrap(vars(model)) +
+	coord_cartesian(xlim = c(0, 5000), ylim = c(0, 5000))
+
+# Plot the residuals -- not because it said to, for my own curiousity
+comb_preds |>
+	ggplot() +
+	aes(x = .pred, y = .resid) +
+	geom_hline(yintercept = 0) +
+	geom_point() +
+	facet_wrap(vars(model)) +
+	coord_cartesian(xlim = c(0, 5000), ylim = c(-2500, 2500))
+
+# From the residuals plot, we can see that there is much more dispersion in
+# the positive residuals than there is in the negative residuals, indicating
+# that our model makes (on average) worse overpredictions than it does
+# underpredictions -- but there are a roughly equal number of both. Since
+# the residuals don't have a "white noise" pattern, there is some signal that
+# we've failed to extract.
+
+# No noticable autocorrelation in the residuals
+linfit2_preds$.resid |> pacf()
+
+# Model predictions and uncertainty ---------------------------------------
+
+set.seed(324123)
+# Make some bootstraps
+B <- 100
+dat_bs <- bootstraps(dat_train, times = B)
+
+# Make a container for the fitting results
+boot_res <- matrix(nrow = B, ncol = nrow(dat_train))
+
+for (i in 1:B) {
+	# Get the current bootstrap data set
+	dat_sample <- rsample::analysis(dat_bs$splits[[i]])
+	
+	# Fit the model to the current set
+	boot_fit <- lin_mod |> fit(Y ~ ., dat_sample)
+	
+	# And get the predictions on the WHOLE TRAINING DATA
+	boot_preds <- predict(boot_fit, dat_train)$.pred
+	
+	# Store in the results container
+	boot_res[i, ] <- boot_preds
+}
+
+# Look at the container to make sure it worked
+# str(boot_res, max.level = 1)
+
+# Get the quantiles
+boot_quants <-
+	boot_res |>
+	apply(2, quantile,  c(0.055, 0.5, 0.945)) |> 
+	t() |>
+	`colnames<-`(c("lwr", "med", "upr"))
+
+# Join back to the actual data
+linfit2_preds_boot <-
+	linfit2_preds |>
+	bind_cols(boot_quants)
+
+# Make the plot of medians vs. point estimates to illustrate what I said in the
+# notes about using the point estimate instead of the median
+with(linfit2_preds_boot, {plot(med ~ .pred); abline(0, 1)})
+# They aren't visually too far off but they aren't the same.
+
+# Final evaluation on test data -------------------------------------------
+
+test_preds <- augment(linfit2, dat_test)
+
+tt_rmse <- dplyr::bind_rows(
+	"train" = rmse(linfit2_preds, truth = Y, estimate = .pred),
+	"test" = rmse(test_preds, truth = Y, estimate = .pred),
+	.id = "set"
+) |>
+	dplyr::mutate(
+		lab = paste0("RMSE: ", sprintf("%.2f", .estimate))
+	)
+
+linfit2_train_test <-
+	dplyr::bind_rows(
+		"train" = linfit2_preds,
+		"test" = test_preds,
+		.id = "set"
+	) |>
+	dplyr::mutate(set = factor(set, levels = c("train", "test")))
+
+linfit2_train_test |>
+	ggplot() +
+	aes(x = Y, y = .pred, color = set, shape = set) +
+	geom_abline(
+		slope = 1, intercept = 0,
+		linetype = "dashed", color = "gray", linewidth = 1.25
+	) +
+	geom_point(size = 1.5, stroke = 1.5) +
+	labs(
+		x = "Observed",
+		y = "Predicted",
+		color = NULL,
+		shape = NULL
+	) +
+	scale_color_manual(values = c("skyblue", "orange")) +
+	scale_shape_manual(values = c(21, 24)) +
+	coord_cartesian(xlim = c(0, 5000), ylim = c(0, 5000)) +
+	guides(
+		x = guide_axis(cap = "both"),
+		y = guide_axis(cap = "both")
+	) +
+	theme(
+		axis.line = element_line(),
+		axis.ticks = element_line(),
+		legend.position = "inside",
+		legend.position.inside = c(0.15, 0.8),
+		legend.background = element_rect()
+	)
