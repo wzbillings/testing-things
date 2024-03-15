@@ -110,6 +110,7 @@ mi_dat <- dat |>
 	dplyr::select(-RACE)
 
 # Train/test split
+set.seed(12356)
 dat_split <-
 	rsample::initial_split(mi_dat, prop = 0.75)
 
@@ -135,7 +136,7 @@ rmse(linfit1_preds, truth = Y, estimate = .pred)
 rmse(linfit2_preds, truth = Y, estimate = .pred)
 
 # Set up 10-fold cross validation
-set.seed(309123)
+set.seed(12356)
 folds <- vfold_cv(dat_train, v = 10)
 
 # Set up the workflows
@@ -178,7 +179,7 @@ collect_metrics(linfit2_res)
 # rule for selection, we would select the model with only dose.
 
 # Run that code again to see new values
-set.seed(156461)
+set.seed(13548731)
 folds <- vfold_cv(dat_train, v = 10)
 null_res <-
 	null_wf |>
@@ -243,7 +244,7 @@ linfit2_preds$.resid |> pacf()
 
 # Model predictions and uncertainty ---------------------------------------
 
-set.seed(324123)
+set.seed(12356)
 # Make some bootstraps
 B <- 100
 dat_bs <- bootstraps(dat_train, times = B)
@@ -322,7 +323,7 @@ linfit2_train_test |>
 	) +
 	scale_color_manual(values = c("skyblue", "orange")) +
 	scale_shape_manual(values = c(21, 24)) +
-	coord_cartesian(xlim = c(0, 5000), ylim = c(0, 5000)) +
+	coord_fixed(xlim = c(0, 5000), ylim = c(0, 5000), ratio = 1) +
 	guides(
 		x = guide_axis(cap = "both"),
 		y = guide_axis(cap = "both")
@@ -334,3 +335,5 @@ linfit2_train_test |>
 		legend.position.inside = c(0.15, 0.8),
 		legend.background = element_rect()
 	)
+
+tt_rmse
