@@ -110,7 +110,7 @@ mi_dat <- dat |>
 	dplyr::select(-RACE)
 
 # Train/test split
-set.seed(12356)
+set.seed(1234)
 dat_split <-
 	rsample::initial_split(mi_dat, prop = 0.75)
 
