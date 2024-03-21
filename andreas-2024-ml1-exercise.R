@@ -68,7 +68,7 @@ fit2 <- wflow2 %>% fit(data = df1)
 
 ## ---- model3 --------
 mod3 <- rand_forest(mode = "regression") %>%
-  set_engine("ranger")
+  set_engine("ranger", seed = rngseed)
 wflow3 <- workflow() %>% 
   add_model(mod3) %>% 
   add_formula(Y ~ .) 
@@ -152,7 +152,7 @@ rf_tune <- rand_forest(
   min_n = tune()
 ) |>
   set_mode("regression") |>
-  set_engine("ranger")
+  set_engine("ranger", seed = rngseed)
 
 wflow_m3_t1 <- workflow() %>% 
   add_model(rf_tune) %>% 
